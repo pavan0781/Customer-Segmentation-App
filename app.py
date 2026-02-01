@@ -80,29 +80,32 @@ elif page == "Customer Segment Predictor":
     with col_b:
         spending = st.number_input('Spending Score (1–100)', min_value=1, max_value=100, value=50)
 
-    if st.button('Predict Segment', use_container_width=True):
-        # Using RobustScaler 'center_' (medians) as baseline for the features
-        input_features = scaler.center_.copy().reshape(1, -1)
+   if st.button('Predict Segment', use_container_width=True):
+    # 1. Get the baseline (centers) from your RobustScaler (13 features)
+    # This uses medians instead of zeros for missing data 
+    input_features = scaler.center_.copy().reshape(1, -1)
 
-        # Map user inputs (Income: index 3, Total Spend: index 28)
-        input_features[0, 3] = income 
-        input_features[0, 28] = spending 
+    # 2. Map user inputs to the correct indices for your 13-feature model
+    # Index 0 = Income 
+    # Index 5 = Monetary_RFM (Spending) 
+    input_features[0, 0] = income 
+    input_features[0, 5] = spending 
 
-        # Scale and predict
-        features_scaled = scaler.transform(input_features)
-        cluster = model.predict(features_scaled)[0]
+    # 3. Scale and predict
+    features_scaled = scaler.transform(input_features)
+    cluster = model.predict(features_scaled)[0]
 
-        st.divider()
-        st.subheader(f"🎯 Prediction: Segment {cluster}")
+    st.divider()
+    st.subheader(f"🎯 Prediction: Segment {cluster}")
 
-        # Visualization of customer vs cluster centers
-        centers = scaler.inverse_transform(model.cluster_centers_)
-        fig_map, ax_map = plt.subplots()
-        ax_map.scatter(centers[:, 3], centers[:, 28], c='blue', s=200, marker='X', label='Segment Centers')
-        ax_map.scatter(income, spending, c='red', s=300, label='This Customer', edgecolors='white')
-        ax_map.set_xlabel("Income")
-        ax_map.set_ylabel("Spending Score")
-        ax_map.legend()
-        st.pyplot(fig_map)
-        
-        st.balloons()
+    # 4. Corrected Visualization using indices 0 and 5
+    centers = scaler.inverse_transform(model.cluster_centers_)
+    fig_map, ax_map = plt.subplots()
+    ax_map.scatter(centers[:, 0], centers[:, 5], c='blue', s=200, marker='X', label='Segment Centers')
+    ax_map.scatter(income, spending, c='red', s=300, label='This Customer', edgecolors='white')
+    ax_map.set_xlabel("Income")
+    ax_map.set_ylabel("Spending (Monetary)")
+    ax_map.legend()
+    st.pyplot(fig_map)
+    
+    st.balloons()
