@@ -16,8 +16,9 @@ page = st.sidebar.radio("Go to", ["Analytics Dashboard", "Customer Segment Predi
 # --- SHARED DATA LOADING ---
 @st.cache_resource
 def load_models():
-    model = joblib.load('customer_segmentation_model.pkl') [cite: 3]
-    scaler = joblib.load('scaler.pkl') [cite: 95]
+    # Loading the KMeans model and RobustScaler
+    model = joblib.load('customer_segmentation_model.pkl')
+    scaler = joblib.load('scaler.pkl')
     return model, scaler
 
 # --- PAGE 1: ANALYTICS DASHBOARD ---
@@ -26,17 +27,17 @@ if page == "Analytics Dashboard":
     st.markdown("Detailed breakdown of identified customer clusters and business impact.")
 
     try:
-        # Load the exported data
+        # Load the exported Excel data
         cluster_summary = pd.read_excel("cluster_summary.xlsx")
         persona_table = pd.read_excel("cluster_personas.xlsx")
         education_group_dist = pd.read_excel("cluster_education_group_distribution.xlsx", index_col=0)
         marital_group_dist = pd.read_excel("cluster_marital_group_distribution.xlsx", index_col=0)
 
-        # 1. Cluster Personas
+        # 1. Cluster Personas Table
         st.header("1. Cluster Personas and Business Actions")
         st.dataframe(persona_table, use_container_width=True)
 
-        # 2. Revenue & Distribution
+        # 2. Revenue & Distribution Charts
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("Customer Distribution")
@@ -45,13 +46,12 @@ if page == "Analytics Dashboard":
         
         with col2:
             st.subheader("Estimated Revenue Contribution")
-            # Simple proxy calculation as used in your previous snippet
-            revenue_contribution = cluster_summary.copy()
-            revenue_contribution['Total_Revenue_Proxy'] = revenue_contribution['Avg_Total_Spend'] * revenue_contribution['Customer_%']
-            fig_rev_dist = px.pie(revenue_contribution, values='Total_Revenue_Proxy', names='Cluster_Name')
+            rev_contribution = cluster_summary.copy()
+            rev_contribution['Total_Revenue_Proxy'] = rev_contribution['Avg_Total_Spend'] * rev_contribution['Customer_%']
+            fig_rev_dist = px.pie(rev_contribution, values='Total_Revenue_Proxy', names='Cluster_Name')
             st.plotly_chart(fig_rev_dist, use_container_width=True)
 
-        # 3. Demographics
+        # 3. Demographic Heatmaps
         st.header("2. Demographic Heatmaps")
         tab1, tab2 = st.tabs(["Marital Status", "Education Level"])
         with tab1:
@@ -63,8 +63,8 @@ if page == "Analytics Dashboard":
             sns.heatmap(education_group_dist, annot=True, cmap="YlGnBu", fmt=".1%", ax=ax_edu)
             st.pyplot(fig_edu)
 
-    except FileNotFoundError as e:
-        st.error(f"Missing Data File: {e.filename}. Please upload the Excel files to GitHub.")
+    except Exception as e:
+        st.error(f"Error loading dashboard data: {e}. Ensure all Excel files are uploaded.")
 
 # --- PAGE 2: CUSTOMER PREDICTOR ---
 elif page == "Customer Segment Predictor":
@@ -73,7 +73,7 @@ elif page == "Customer Segment Predictor":
 
     model, scaler = load_models()
 
-    # User Inputs
+    # User Inputs for the two primary features
     col_a, col_b = st.columns(2)
     with col_a:
         income = st.number_input('Annual Income (k$)', min_value=0, value=50)
@@ -81,11 +81,10 @@ elif page == "Customer Segment Predictor":
         spending = st.number_input('Spending Score (1–100)', min_value=1, max_value=100, value=50)
 
     if st.button('Predict Segment', use_container_width=True):
-        # Use RobustScaler centers as baseline for the 13 features 
-        input_features = scaler.center_.copy().reshape(1, -1) [cite: 95]
+        # Using RobustScaler 'center_' (medians) as baseline for the features
+        input_features = scaler.center_.copy().reshape(1, -1)
 
         # Map user inputs (Income: index 3, Total Spend: index 28)
-        # Based on your provided model structure [cite: 3, 95]
         input_features[0, 3] = income 
         input_features[0, 28] = spending 
 
@@ -96,7 +95,7 @@ elif page == "Customer Segment Predictor":
         st.divider()
         st.subheader(f"🎯 Prediction: Segment {cluster}")
 
-        # Visualization
+        # Visualization of customer vs cluster centers
         centers = scaler.inverse_transform(model.cluster_centers_)
         fig_map, ax_map = plt.subplots()
         ax_map.scatter(centers[:, 3], centers[:, 28], c='blue', s=200, marker='X', label='Segment Centers')
@@ -107,6 +106,3 @@ elif page == "Customer Segment Predictor":
         st.pyplot(fig_map)
         
         st.balloons()
-
-st.sidebar.markdown("---")
-st.sidebar.caption("System Version: 1.6.1 (Scikit-Learn) [cite: 94]")
